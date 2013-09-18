@@ -19,6 +19,15 @@
 #include <string.h>
 #include <unistd.h>
 
+#define COLOR_NONE      "\033[0m"
+#define COLOR_RED       "\033[0;31m"
+#define COLOR_GREEN     "\033[0;32m"
+#define COLOR_BLUE      "\033[0;34m"
+#define COLOR_YELLOW        "\033[1;33m"
+#define COLOR_LIGHT_GREEN   "\033[1;32m"
+#define COLOR_LIGHT_GRAY    "\033[0;37m"
+#define COLOR_DARK_GRAY     "\033[1;30m"
+
 #define S(X) ( ((unsigned long long)(X) << 10) >> shift)
 
 const char help_message[] =
@@ -35,19 +44,20 @@ const char help_message[] =
 int main(int argc, char *argv[]){
     int i;
     int count = 0;
-    int shift = 10;
+    int shift = 20; // default shift is MB
     int pause_length = 0;
     int show_high = 0;
     int show_total = 0;
     int old_fmt = 0;
+    const char * unit = "M";
 
     /* check startup flags */
     while( (i = getopt(argc, argv, "bkmglotc:s:V") ) != -1 )
         switch (i) {
-        case 'b': shift = 0;  break;
-        case 'k': shift = 10; break;
-        case 'm': shift = 20; break;
-        case 'g': shift = 30; break;
+        case 'b': shift = 0; unit=""; break;
+        case 'k': shift = 10; unit="K"; break;
+        case 'm': shift = 20; unit="M"; break;
+        case 'g': shift = 30; unit="G"; break;
         case 'l': show_high = 1; break;
         case 'o': old_fmt = 1; break;
         case 't': show_total = 1; break;
@@ -61,15 +71,25 @@ int main(int argc, char *argv[]){
 
     do {
         meminfo();
-        printf("             total       used       free     shared    buffers     cached\n");
+        printf("%-15s  %s%11s %11s %11s %11s %11s %11s%s\n", 
+                " ", 
+                COLOR_DARK_GRAY,
+                "total", 
+                "used", 
+                "free", 
+                "shared", 
+                "buffers", 
+                "cached", 
+                COLOR_NONE);
+        printf("-----------------------------------------------------------------------------------------\n");
         printf(
-            "%-7s %10Lu %10Lu %10Lu %10Lu %10Lu %10Lu\n", "Mem:",
-            S(kb_main_total),
-            S(kb_main_used),
-            S(kb_main_free),
-            S(kb_main_shared),
-            S(kb_main_buffers),
-            S(kb_main_cached)
+            "%-15s| %10Lu%s %10Lu%s %s%10Lu%s%s %10Lu%s %10Lu%s %10Lu%s\n", "Mem:",
+            S(kb_main_total), unit, 
+            S(kb_main_used), unit,
+            kb_main_free > 300*1024?COLOR_NONE:COLOR_YELLOW, S(kb_main_free), unit, COLOR_NONE, 
+            S(kb_main_shared), unit,
+            S(kb_main_buffers), unit,
+            S(kb_main_cached), unit
         );
         // Print low vs. high information, if the user requested it.
         // Note we check if low_total==0: if so, then this kernel does
@@ -77,35 +97,35 @@ int main(int argc, char *argv[]){
         // print the high info, even if it is zero.
         if (show_high) {
             printf(
-                "%-7s %10Lu %10Lu %10Lu\n", "Low:",
+                "%-15s| %10Lu %10Lu %10Lu\n", "Low:",
                 S(kb_low_total),
                 S(kb_low_total - kb_low_free),
                 S(kb_low_free)
             );
             printf(
-                "%-7s %10Lu %10Lu %10Lu\n", "High:",
+                "%-15s| %10Lu %10Lu %10Lu\n", "High:",
                 S(kb_high_total),
                 S(kb_high_total - kb_high_free),
                 S(kb_high_free)
             );
         }
+        printf(
+            "%-15s| %10Lu%s %10Lu%s %10Lu%s\n", "Swap:",
+            S(kb_swap_total), unit, 
+            S(kb_swap_used), unit,
+            S(kb_swap_free), unit
+        );
         if(!old_fmt){
             unsigned KLONG buffers_plus_cached = kb_main_buffers + kb_main_cached;
             printf(
-                "-/+ buffers/cache: %10Lu %10Lu\n", 
-                S(kb_main_used - buffers_plus_cached),
-                S(kb_main_free + buffers_plus_cached)
+                "%-15s| %10Lu%s %10Lu%s\n", "-/+ buf/cache:", 
+                S(kb_main_used - buffers_plus_cached), unit,
+                S(kb_main_free + buffers_plus_cached), unit
             );
         }
-        printf(
-            "%-7s %10Lu %10Lu %10Lu\n", "Swap:",
-            S(kb_swap_total),
-            S(kb_swap_used),
-            S(kb_swap_free)
-        );
-        if(show_total){
+       if(show_total){
             printf(
-                "%-7s %10Lu %10Lu %10Lu\n", "Total:",
+                "%-15s| %10Lu %10Lu %10Lu\n", "Total:",
                 S(kb_main_total + kb_swap_total),
                 S(kb_main_used  + kb_swap_used),
                 S(kb_main_free  + kb_swap_free)
